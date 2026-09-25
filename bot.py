@@ -3,6 +3,8 @@ import asyncio
 import json
 import os
 
+from dotenv import load_dotenv
+
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
@@ -11,7 +13,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from parser import get_weather
 
 
-TOKEN = "8940609597:AAHkTM3trqRwVuO-3TiFEvOd0t2wlFKqJO8"
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
