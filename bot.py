@@ -1,54 +1,167 @@
+
 import asyncio
+import json
+import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from parser import get_weather
 
 
 TOKEN = "8940609597:AAHkTM3trqRwVuO-3TiFEvOd0t2wlFKqJO8"
 
-
 bot = Bot(TOKEN)
 dp = Dispatcher()
+
+
+cities = [
+    "Вишневе",
+    "Київ",
+    "Львів",
+    "Біла Церква",
+    "Одеса",
+    "Харків",
+    "Дніпро",
+    "Вінниця",
+    "Черкаси",
+    "Запоріжжя",
+
+    "Ужгород",
+    "Івано-Франківськ",
+    "Тернопіль",
+    "Хмельницький",
+    "Чернівці",
+    "Рівне",
+    "Луцьк",
+    "Житомир",
+    "Полтава",
+    "Суми",
+    "Кропивницький",
+    "Миколаїв",
+    "Херсон",
+    "Кривий Ріг",
+    "Маріуполь",
+    "Кременчук",
+    "Бровари",
+    "Ірпінь",
+    "Буча",
+    "Обухів",
+    "Фастів",
+    "Бердичів",
+    "Кам'янець-Подільський",
+    "Мукачево",
+    "Дрогобич",
+    "Стрий",
+    "Нікополь",
+    "Павлоград",
+    "Краматорськ",
+    "Слов'янськ",
+    "Бахмут",
+    "Мелітополь",
+    "Бердянськ",
+    "Умань",
+    "Прилуки",
+    "Ніжин",
+    "Коростень",
+    "Чортків",
+    "Бориспіль"
+]
+
+def load_users():
+    if not os.path.exists("users.json"):
+        return {}
+
+    with open("users.json", "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def save_users(users):
+    with open("users.json", "w", encoding="utf-8") as file:
+        json.dump(users, file, ensure_ascii=False, indent=4)
+
+
+def create_keyboard(user_id):
+    users = load_users()
+
+    user_id = str(user_id)
+
+    favorites = users.get(user_id, [])
+
+    result = []
+
+    for city in favorites:
+        if city not in result:
+            result.append(city)
+
+    for city in cities:
+        if city not in result:
+            result.append(city)
+
+    keyboard = InlineKeyboardBuilder()
+
+    for city in result:
+        if city in favorites:
+            text = "⭐ " + city
+        else:
+            text = "🇺🇦 " + city
+
+        keyboard.button(
+            text=text,
+            callback_data="city:" + city
+        )
+
+    keyboard.adjust(2)
+
+    return keyboard.as_markup()
 
 
 @dp.message(Command("start"))
 async def start(message: Message):
     await message.answer(
         "🌤 Привіт!\n\n"
-        "Напиши місто:\n"
-        "/weather Вишневе\n"
-        "/weather Київ\n"
-        "/weather Львів"
+        "Натисни /weather, щоб вибрати місто."
     )
 
 
 @dp.message(Command("weather"))
-async def weather(message: Message):
-    parts = message.text.split(maxsplit=1)
+async def weather_menu(message: Message):
+    keyboard = create_keyboard(message.from_user.id)
 
-    if len(parts) < 2:
-        await message.answer(
-            "❌ Напиши місто.\n\n"
-            "Наприклад:\n"
-            "/weather Вишневе"
-        )
-        return
+    await message.answer(
+        "🌤 Обери місто:",
+        reply_markup=keyboard
+    )
 
-    city = parts[1]
 
-    try:
-        weather_data = get_weather(city)
-    except Exception:
-        weather_data = None
+@dp.callback_query(lambda callback: callback.data.startswith("city:"))
+async def city_weather(callback: CallbackQuery):
+    city = callback.data.replace("city:", "")
+
+    weather_data = get_weather(city)
 
     if weather_data is None:
-        await message.answer(
-            "❌ Не вдалося знайти це місто."
+        await callback.message.answer(
+            "❌ Не вдалося отримати погоду."
         )
+        await callback.answer()
         return
+
+    users = load_users()
+
+    user_id = str(callback.from_user.id)
+
+    if user_id not in users:
+        users[user_id] = []
+
+    if city in users[user_id]:
+        users[user_id].remove(city)
+
+    users[user_id].insert(0, city)
+
+    save_users(users)
 
     text = (
         "🌤 Погода\n\n"
@@ -60,7 +173,9 @@ async def weather(message: Message):
         f"💧 Вологість: {weather_data['humidity']}%"
     )
 
-    await message.answer(text)
+    await callback.message.answer(text)
+
+    await callback.answer()
 
 
 async def main():
@@ -69,3 +184,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
