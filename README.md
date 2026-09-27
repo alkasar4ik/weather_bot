@@ -82,6 +82,6 @@ weather-bot/
 
 ## Author
 
-**Roma Hom**
+**BARABOSSO**
 
 Python Developer
